@@ -1,0 +1,630 @@
+---
+title: "Projekt zaliczeniowy - analiza szeregów czasowych"
+author: "Aryna Bubenchyk, Małgorzata Ryll"
+date: "`r Sys.Date()`"
+output: word_document
+---
+
+
+```{r, include=FALSE}
+library(tseries)
+library(forecast)
+library(MuMIn)
+
+dane24 <- read.csv(file = "C:/Users/HP/Desktop/sql/szeregi_czasowe/dane24.csv")
+
+dane24 <- dane24 + 30
+ 
+data <- ts(dane24$x, start = c(2020, 1), end = c(2024, 12), frequency = 12)
+class(data)
+```
+
+W oryginalnym zbiorze danych nr 24 zauważamy występowanie wartości ujemnych, z 
+których najniższa wynosi około -29,5. Aby wyeliminować te wartości, dodałyśmy wartość 
+30 do każdej obserwacji. Takie działanie pozwoliło nam zachować strukturę i zależności 
+obecne w pierwotnych danych, wprowadzając jedynie przesunięcie wartości, co umożliwia 
+dalsze analizy bez zmiany relacji między obserwacjami. 
+
+**1.Oceń stacjonarność szeregu - na podstawie wykresu oraz odpowiedniego testu statystycznego.**
+
+```{r, echo=FALSE}
+plot(data, main = "Szereg czasowy", 
+     ylab = "Wartości szeregu", xlab = "Czas", col = "cornflowerblue")
+```
+
+Analizując wykres szeregu czasowego, zaobserwowaliśmy kilka kluczowych cech:
+
+- Trend malejący: wartości w szeregu wykazują ogólną tendencję spadkową wraz z upływem czasu.
+- Okresowe wahania: oprócz trendu spadkowego zauważalny jest komponent sezonowy, wskazujący na powtarzające się wzorce w określonych odstępach czasu.
+
+Nasze obserwacje sugerują, że szereg nie spełnia warunków stacjonarności. Aby zweryfikować te przypuszczenia, przeprowadziliśmy test KPSS.
+Test KPSS (Kwiatkowski-Phillips-Schmidt-Shin) służy do oceny stacjonarności szeregu czasowego. Sprawdza, czy szereg jest stacjonarny wokół poziomu lub trendu.
+
+- Hipoteza zerowa: szereg jest stacjonarny.
+- Hipoteza alternatywna: szereg nie jest stacjonarny.
+
+
+
+```{r, warning=FALSE}
+kpss_test <- kpss.test(data)
+print(kpss_test)
+```
+Wynik testu KPSS wskazał, że p-value = 0.01, co jest mniejsze od przyjętego poziomu istotności α = 0.05. W związku z tym odrzucamy hipotezę zerową i przyjmujemy hipotezę alternatywną. Otrzymane wyniki potwierdzają, że szereg czasowy nie jest stacjonarny, co jest zgodne z naszymi wcześniejszymi przypuszczeniami.
+
+
+**2. Jeśli szereg jest niestacjonarny, to zastosuj odpowiednie przekształcenia, aby uzyskać szereg stacjonarny.**
+```{r, include=FALSE}
+ts_diff <- diff(diff(data, lag = 12), lag = 1)
+
+```
+
+Aby uzyskać stacjonarność szeregu, różnicujemy dane.
+
+
+```{r pressure, echo=FALSE}
+plot(ts_diff, main = "Szereg czasowy zróżnicowany", 
+     ylab = "Wartości szeregu", xlab = "Czas", col = "cornflowerblue")
+```
+Analizując wykres szeregu czasowego, nie zaobserwowałyśmy obecności trendu ani sezonowości.
+
+Nasze obserwacje sugerują, że szereg może spełniać warunki stacjonarności. Aby to zweryfikować, przeprowadzamy test KPSS.
+
+```{r, warning=FALSE}
+kpss_test_diff <- kpss.test(ts_diff)
+print(kpss_test_diff)
+```
+Wynik testu KPSS wskazał, że p-value = 0.1. Przy poziomie istotności α = 0.05 nie mamy podstaw do odrzucenia hipotezy zerowej o stacjonarności szeregu. Otrzymane wyniki sugerują, że analizowany szereg czasowy można uznać za stacjonarny.
+
+**3. Na podstawie wykresu szeregu oceń czy występuje trend i sezonowość. Uzasadnij występowanie (lub brak) sezonowości na podstawie wykresu autokorelacji oraz wybranych dwóch innych wykresów.**
+
+Przedstawiamy wykresy autokorelacji (ACF) dla szeregu niestacjonarnego oraz stacjonarnego.
+
+```{r, echo = FALSE}
+acf(data, main = "Wykres ACF dla szeregu niestacjonarnego")
+```
+Na wykresie ACF dla oryginalnego szeregu czasowego obserwujemy, że autokorelacje zanikają powoli. Jest to charakterystyczne dla szeregów, w którym występuje trend.
+
+```{r, echo = FALSE}
+acf(ts_diff, main = "Wykres ACF dla szeregu stacjonarnego")
+```
+Natomiast dla danych zróżnicowanych zauważamy, że po kilku pierwszych lagach wartości autokorelacji nie przekraczają poziomu istotności, który oznaczony jest niebieską przerywaną linią.
+
+Tworzymy wykresy sezonowe, aby przeanalizować zmienność w poszczególnych miesiącach w różnych latach. Przedstawiamy wykresy zarówno dla danych oryginalnych, jak i zróżnicowanych, aby zobaczyć, jak zmienia się cykliczność w szeregu czasowym.
+
+```{r, echo = FALSE}
+seasonplot(data, main = "Wykres sezonowy dla szeregu oryginalnego", 
+           year.labels = TRUE, 
+           year.labels.left = TRUE,
+           col = c("red", "blue", "green", "purple", "orange"))
+```
+
+```{r, echo =FALSE}
+seasonplot(ts_diff, main = "Wykres sezonowy dla szeregu zróżnicowanego", 
+           year.labels = TRUE, 
+           year.labels.left = TRUE, 
+           col = c("red", "blue", "green", "purple", "orange") )
+```
+
+W przypadku danych oryginalnych sezonowość jest wyraźnie widoczna i regularna. Natomiast dla danych zróżnicowanych sezonowość przestaje być zauważalna, co sugeruje, że proces różnicowania eliminuje ten komponent z szeregu czasowego.
+
+
+Prezentujemy również wykresy miesięczne, które pozwalają na szczegółową analizę danych w podziale na poszczególne miesiące.
+
+```{r, echo =FALSE, warning=FALSE}
+monthplot(data, main = "Wykres miesięczny dla szeregu oryginalnego", 
+          year.labels = TRUE, 
+          year.labels.left = TRUE, )
+```
+
+```{r,echo=FALSE, warning= FALSE}
+monthplot(ts_diff, main = "Wykres sezonowy dla szeregu zróżnicowanego", 
+          year.labels = TRUE, 
+          year.labels.left = TRUE, )
+```
+Obserwacje są analogiczne do tych z poprzednich wykresów. Dla oryginalnych danych wyraźnie widoczna jest zarówno sezonowość, jak i trend. Z kolei dla danych zróżnicowanych nie obserwujemy występowania ani trendu, ani sezonowości.
+
+**4. Przy użyciu funkcji decompose dokonaj klasycznej dekompozycji addytywnej lub multiplikatywnej danych. Uzasadnij wybór rodzaju dekompozycji. Wykonaj wykres słupkowy indeksów sezonowych oraz wykres reszt.**
+
+Na podstawie przedstawionych wyżej wykresów możemy stwierdzić, że nasze dane wykazują trend malejący. Dodatkowo zauważamy, że sezonowość jest względnie stała i powtarza się co rok. Dekompozycja addytywna jest odpowiednia w przypadku, gdy wahania sezonowe nie zależą od poziomu trendu, co jest zgodne z obserwowanymi danymi. W związku z tym postanawiamy zastosować dekompozycję addytywną, uznając ją za odpowiednią metodę do analizy naszych danych.
+
+```{r}
+decomp_additive <- decompose(data, type = "additive")
+plot(decomp_additive)
+```
+Reszty wydają się oscylować wokół 0 i nie zawierają wyraźnych trendów ani sezonowości, 
+co jest dobrym znakiem – oznacza to, że dekompozycja skutecznie uchwyciła trend i 
+sezonowość.
+
+```{r, echo = FALSE}
+seasonal_additive <- as.numeric(decomp_additive$seasonal) 
+barplot(seasonal_additive, main = "Indeksy sezonowe - Dekompozycja Addytywna", col = "lightblue")
+
+```
+Wyraźne wahania cykliczne wskazują na silną sezonowość, co jest istotne dla 
+przewidywania przyszłych wartości. 
+
+
+```{r,echo=FALSE, warning= FALSE}
+
+monthplot(na.omit(decomp_additive$random), main = "Wykres miesięczny reszt", ylab = "Reszty", col="cornflowerblue")
+```
+
+Reszty pokazują nieregularne fluktuacje wokół średniej, co oznacza, że główne 
+komponenty (trend i sezonowość) zostały usunięte. 
+Dekompozycja dobrze poradziła sobie z rozdzieleniem trendu i sezonowości od reszt. 
+Zarówno trend, jak i sezonowe wahania są wyraźnie widoczne, a reszty wydają się być 
+losowe, co świadczy o poprawnym uchwyceniu głównych zależności w danych.
+
+**5. Wykorzystując funkcję tslm dopasuj do danych różne modele: liniowy, liniowy z sezonowością, model z trendem i sezonowością dla danych zlogarytmizowanych, model z trendem kwadratowym i sezonowością oraz model z trendem wielomianowym stopnia czwartego i sezonowością. Dla każdego modelu sporządź odpowiednie wykresy. Na podstawie wykresów oceń reszty tych modeli.**
+
+1. Model liniowy
+```{r, echo =FALSE}
+data.trend <- tslm(data ~ trend)
+summary(data.trend)
+```
+```{r, echo=FALSE}
+plot(data, main = "Dopasowanie trendu liniowego")
+lines(fitted(data.trend), col = "red", lty=2)
+legend("topright", legend=c("Oryginalne dane","Trend liniowy"),
+       col = c("black", "red"), lty = c(1, 2))
+```
+
+Dopasowany model trendu liniowego pokazuje systematyczny spadek wartości szeregu 
+czasowego. Pomimo dobrego uchwycenia ogólnej tendencji, model nie uwzględnia 
+sezonowości i fluktuacji losowych, które są widoczne w oryginalnych danych. 
+
+
+
+```{r, echo=FALSE}
+tsdisplay(residuals(data.trend), main="Reszty losowe")
+
+```
+
+Analizując reszty zauważamy, że oscylują wokół zera, co sugeruje brak wyraźnego trendu. 
+Są jednak widoczne reguralne wzorce, które wskazują na nieuchwycenie sezonowości. 
+Autokorelacje cyklicznie przekraczają granicę istotności, co znaczy, ze reszty nie są 
+nieskorelowane. Częściowe autokorelacje również wsakzują na zależności w niektórych 
+lagach.  
+
+2. Model liniowy z sezonowością.
+```{r, echo=FALSE}
+data.sezon<-tslm(data ~ trend + season)
+summary(data.sezon)
+```
+```{r, echo=FALSE}
+plot(data, main="Dopasowanie modelu liniowego z sezonowością")
+lines(fitted(data.sezon), col="red", lty=2)
+legend("topright", legend=c("Oryginalne dane","Trend z sezonowością"),
+       col=c("black","red") , lty=c(1,2))
+```
+
+Model trendu z sezonowością dobrze opisuje regularne wahania sezonowe, a także 
+uwzględnia ogólny spadkowy trend danych. Na pierwszy rzut oka, model dobrze 
+odzwierciedla dane. 
+
+```{r, echo=FALSE}
+tsdisplay(residuals(data.sezon), main="Reszty losowe")
+
+```
+Reszty oscylują wokół zera bez wyraźnego trendu ani sezonowości, jednak wykres ACF 
+wskazuje na wahania sezonowe - lagi sezonowo zanikają. 
+
+
+3. Model z trendem i sezonowością dla danych zlogarytmowanych.
+
+```{r, echo=FALSE}
+data.log.trend.sezon <- tslm(data ~ trend + season, lambda = 0)
+summary(data.log.trend.sezon)
+```
+```{r, echo=FALSE}
+plot(data, main="Dopasowanie modelu trend + sezonowość \n(dane zlogarytmizowane)")
+lines(fitted(data.log.trend.sezon), col="red", lty=2)
+legend("topright", legend=c("Oryginalne dane","Trend + sezonowość"),
+       col=c("black","red") , lty=c(1,2))
+```
+Model trendu z sezonowością dla zlogarytmizowanych danych zdaje się słabiej oddawać 
+regularne wahania sezonowe oraz ogólną tendencję spadkową. 
+
+```{r, echo=FALSE}
+tsdisplay(residuals(data.log.trend.sezon), main="Reszty losowe")
+
+```
+Zauważamy, że reszty oscylują wokół zera, co znaczy, że model uchwycił zarówno trend jak 
+i sezonowość. Autokorelacje dla większości lagów mieszczą się w granicach istotności. 
+PACF również wskazuje na brak istotnych zależności czasowych. 
+
+
+4. Model z trendem kwadratowym i sezonowością.
+```{r, echo=FALSE}
+data.log.trend.kwadrat.sezon <- tslm(data ~ season + trend + I(trend^2))
+summary(data.log.trend.kwadrat.sezon)
+```
+```{r, echo=FALSE}
+plot(data, main="Dopasowanie modelu trend kwadratowy + sezonowość")
+lines(fitted(data.log.trend.kwadrat.sezon), col="red", lty=2)
+legend("topright", legend=c("Oryginalne dane","Trend kwadratowy + sezonowość"), col=c("black","red") , lty=c(1,2))
+```
+Model kwadratowy z sezonowością skutecznie opisuje dane, odzwierciedlając zarówno 
+złożoność trendu, jak i regularne wahania sezonowe. Dopasowanie  nie różni się jednak od 
+tego otrzymanego w modelu z trendem i sezonowością, a model jest bardziej złożony. 
+
+
+```{r, echo=FALSE}
+tsdisplay(residuals(data.log.trend.kwadrat.sezon), main="Reszty losowe")
+
+```
+
+Reszty oscylują wokół zera bez widocznego trendu i cykliczności. Wykres autokorelacji 
+wskazuje cykliczność danych. Część lagów przekracza granicę istotności, co wskazuje na 
+korelację czasową. 
+
+
+5. Model z trendem wielomianowym stopnia 4 i sezonowością.
+```{r, echo=FALSE}
+data.log.trend.4.sezon <- tslm(data ~ season + trend + poly(trend, raw=TRUE, degree = 4))
+
+summary(data.log.trend.4.sezon)
+```
+
+```{r, echo=FALSE}
+plot(data, main="Dopasowanie modelu trend \nwielomianowy + sezonowość")
+lines(fitted(  data.log.trend.4.sezon), col="red", lty=2)
+legend("bottomleft", legend=c("Oryginalne dane","Trend wielomianowy + sezonowość"), col=c("black","red") , lty=c(1,2))
+```
+Model wielomianowy z sezonowością jest dobrze dopasowany do danych, 
+odzwierciedlając zarówno długoterminową dynamikę trendu, jak i sezonowe wahania. 
+Dopasowanie do danych jest porównywalne do modelu z trendem kwadratowym oraz z 
+trendem i sezonowością, natomiast różnica w złożoności jest znacząca.
+
+```{r, echo=FALSE}
+tsdisplay(residuals(data.log.trend.4.sezon), main="Reszty losowe")
+
+```
+Reszty oscylują wokół zera bez zauważalnego trendu oraz cykliczności. Wykres ACF 
+wskazuje na cykliczność danych, w kilku lagach również przekracza granicę istotności.
+
+W celu porównania modeli i wyboru tego najbardziej optymalnego używamy funkcji ANOVA, która analizuje wariancję dla kilku dopasowanych modeli, pozwalając na ocenę, który z nich najlepiej pasuje do danych na podstawie porównania istotności statystycznej ich wyników.
+
+```{r, echo = FALSE}
+anova(data.trend, data.sezon, data.log.trend.sezon, data.log.trend.kwadrat.sezon, data.log.trend.4.sezon)
+```
+
+Dodanie sezonowości do modelu okazało się bardzo istotne. Wartość p (< 2e-16 ***) 
+wskazuje, że wprowadzenie komponentu sezonowego znacząco poprawia dopasowanie 
+modelu. Natomiast dodanie trendu wielomianowego nie jest statystycznie istotne przy 
+założonym poziomie istotności α = 0.05. Negatywna wartość “Sum of Sq” dla Modelu 4 
+sugeruje, że uwzględnienie kwadratu trendu nie wpływa korzystnie na dopasowanie.
+
+
+Spadek RSS w modelu opartym na zlogarytmowanych danych wskazuje, że może on być 
+najlepiej dopasowany do analizowanego zbioru, mimo że wizualizacja tego nie potwierdza. 
+Taki wynik może wynikać z niestacjonarności danych w oryginalnej skali, co negatywnie 
+wpływa na jakość dopasowania. Logarytmowanie pomaga zredukować te problemy, 
+stabilizując wariancję i poprawiając globalne dopasowanie. 
+
+
+**6. Na podstawie funkcji autokorelacji i funkcji częściowej autokorelacji spróbuj dopasować do danych stacjonarnych model szeregu AR(p) oraz szeregu MA(q). W komentarzu napisz dlaczego dopasowałeś wybrany przez siebie model.**
+
+```{r, echo = FALSE}
+acf(ts_diff, main = "Wykres ACF")
+pacf(ts_diff, main = "Wykres PACF")
+```
+Po przeanalizowaniu wykresu częściowej autokorelacji decydujemy się na zastosowanie 
+modelu AR(12), ponieważ wartości częściowej autokorelacji po 12. opóźnieniu nie 
+przekraczają poziomu istotności. Dodatkowo, p-value z testu Ljunga-Boxa wskazuje brak 
+podstaw do odrzucenia hipotezy zerowej o losowości reszt, co sugeruje, że model 
+skutecznie wyjaśnia zależności w danych. 
+
+```{r, echo=FALSE}
+model_ar12 <- arima(ts_diff, order = c(12, 0, 0))
+Box.test(residuals(model_ar12), lag = 4, type = "Ljung-Box")
+```
+
+```{r, echo=FALSE}
+plot(ts_diff, main="Dopasowanie modelu AR(12)")
+lines(fitted(model_ar12), col="red", lty=2)
+legend("bottomleft", legend=c("Zróżnicowane dane","AR(12)"), col=c("black","red") , lty=c(1,2))
+```
+```{r, echo=FALSE}
+tsdisplay(residuals(model_ar12), main = "Reszty dla modelu AR(12)")
+```
+Brak widocznych trendów lub sezonowości w resztach wskazuje, że model AR(12) 
+skutecznie uchwycił strukturę czasową danych. Brak lagów przekraczających granice 
+istotności oznacza, że reszty nie wykazują istotnej autokorelacji.
+
+
+
+Na podstawie wykresu autokorelacji zauważamy, że model MA(3) wydaje się odpowiedni, ponieważ 3. lag jest ostatnim, którego wartość przekracza granicę istotności. Uwzględnianie większej liczby lagów nie ma uzasadnienia, gdy ich poziomy istotności są nieznaczące. Dodatkowo, p-value z testu Ljunga-Boxa wskazuje brak podstaw do odrzucenia hipotezy zerowej o losowości reszt, co potwierdza, że model odpowiednio opisuje dane.
+
+```{r, echo = FALSE}
+model_ma3 <- arima(ts_diff, order = c(0, 0, 3))
+Box.test(residuals(model_ma3), lag = 4, type = "Ljung-Box")
+
+```
+
+
+```{r, echo=FALSE}
+plot(ts_diff, main="Dopasowanie modelu MA(3)")
+lines(fitted(model_ma3), col="red", lty=2)
+legend("bottomleft", legend=c("Zróżnicowane dane","MA(3)"), col=c("black","red") , lty=c(1,2))
+```
+
+```{r, echo=FALSE }
+tsdisplay(residuals(model_ma3), main = "Reszty dla modelu MA(3)")
+
+```
+Model MA(3) również skutecznie uchwyca strukturę czasową. Reszty nie wykazują korelacji.
+
+
+**7. Dla danych oryginalnych dopasuj przynajmniej jeden model SARIMA, wykorzystując odpowiednią funkcję w R.**
+
+Tworzymy trzy modele SARIMA dla trzech kryteriów: AIC, AICC, BIC. Wykorzystujemy do tego wbudowaną funkcję auto.arima.
+1.    Kryterium AIC
+```{r, echo =FALSE}
+arima.aic<-auto.arima(data,ic="aic")
+arima.aic
+```
+
+ARIMA(1,0,0)(1,1,0)[12] with drift oznacza:
+ - (1,0,0) – model zawiera jedną składową autoregresji (AR) i brak składnika średniej ruchomej (MA);
+ - (1,1,0)[12] -  model uwzględnia jeden składnik sezonowej autoregresji (SAR) oraz jedno różnicowanie sezonowe. Cykl sezonowy wynosi 12 miesięcy;
+ - with drift model zawiera stały komponent trendu;
+
+
+2. Kryterium AICC
+```{r, echo = FALSE}
+arima.aicc<-auto.arima(data,ic="aicc")
+arima.aicc
+```
+Zauważamy, że model AIC oraz AICC są tymi samymi modelami. 
+
+```{r, echo=FALSE}
+plot(data, main="Dopasowanie modelu ARIMA (AIC/AICc)")
+lines(fitted(arima.aic), col="red", lty=2)
+legend("bottomleft", legend=c("Oryginalne dane","ARIMA (AIC/AICc)"), col=c("black","red") , lty=c(1,2))
+```
+Model wydaje się być dobrze do pasowany do danych. Na przestrzeni pierwszego roku, model prawie idelanie odwzorowuje oryginalne dane. Na późniejszych etapach dopasowanie nie jest aż tak dobre, ale wciąż pozostaje zadowalające.
+```{r, echo=FALSE}
+tsdisplay(residuals(arima.aic), main = "Reszty dla modelu ARIMA (AIC/AICc)")
+
+```
+Wykres reszt nie uzwględnia trendu ani sezonowości, a wartości osclują blisko zera. Na wykrese AFC 3 lagi przekraczają poziom istotności z czego tylko jedna znacząco.
+
+3. Kryterium BIC 
+```{r, echo=FALSE}
+
+arima.bic<-auto.arima(data,ic="bic")
+arima.bic
+```
+ARIMA(0,0,0)(1,1,0)[12] with drift, oznacza:
+- (0,0,0) - model nie zawiera składników autoregresyjnych (AR) ani średniej ruchomej (MA);
+- (1,1,0)[12] - model uwzględnia jeden składnik sezonowej autoregresji (SAR) oraz jedno różnicowanie sezonowe. Cykl sezonowy wynosi 12 miesięcy;
+- with drift model zawiera stały komponent trendu;
+
+```{r, echo=FALSE}
+plot(data, main="Dopasowanie modelu ARIMA (BIC)")
+lines(fitted(arima.bic), col="red", lty=2)
+legend("bottomleft", legend=c("Oryginalne dane","ARIMA (BIC)"), col=c("black","red") , lty=c(1,2))
+```
+Model ARIMA (BIC) pdwzorowuje dane w analogiczny sposób jak model ARIMA (AIC)
+```{r, echo =FALSE}
+tsdisplay(residuals(arima.bic), main = "Reszty dla modelu ARIMA (BIC)")
+
+```
+Wykresy reszt również nie różnią się znacząco.
+
+
+**8. Dokonaj diagnostyki wszystkich modeli: oceń jakość dopasowania oraz dokładność prognoz.**
+
+W celu oceny jakości dopasowania modeli, dla każdego z nich wyciągniemy wartośći kryteriów AIC, AICc oraz BIC. Model z najniższą wartością dla tych kryteriów można uznać za najlepiej dopasowany.
+
+```{r, echo = FALSE}
+ma3_aic <- model_ma3$aic
+ar12_aic <-model_ar12$aic
+arima.aic_aic <- arima.aic$aic
+arima.bic_aic <- arima.bic$aic
+data.log.trend.sezon_aic <- AIC(data.log.trend.sezon)
+
+ma3_aicc <- MuMIn::AICc(model_ma3)
+ar12_aicc <-MuMIn::AICc(model_ar12)
+arima.aic_aicc <- arima.aic$aicc
+arima.bic_aicc <- arima.bic$aicc
+data.log.trend.sezon_aicc <- MuMIn::AICc(data.log.trend.sezon)
+
+ma3_bic <- BIC(model_ma3)
+ar12_bic <- BIC(model_ar12)
+arima.aic_bic <- arima.aic$bic
+arima.bic_bic <- arima.bic$bic
+data.log.trend.sezon_bic <- BIC(data.log.trend.sezon)
+
+
+dopasowanie_df <- data.frame(
+  Model = c(
+    "MA(3)", 
+    "AR(12)", 
+    "ARIMA (AIC)", 
+    "ARIMA (BIC)",
+    "TREND+SEZON na zlogarytmizowanych danych"
+  ),
+  AIC = c(ma3_aic, ar12_aic, arima.aic_aic, arima.bic_aic, data.log.trend.sezon_aic),
+  AICc = c(ma3_aicc, ar12_aicc, arima.aic_aicc, arima.bic_aicc, data.log.trend.sezon_aicc),
+  BIC = c(ma3_bic, ar12_bic, arima.aic_bic, arima.bic_bic, data.log.trend.sezon_bic)
+)
+
+print(dopasowanie_df)
+
+```
+Najniższe wartości dla wszytskich kryteriów osiąga ostatni model. Różnice między nim a pozostalymi modelami są znaczące. Można zatem uznać, że ten model jest najlepiej dopasowany. Pomiędzy modelami ARIMA nie zauważamy znacznej róznicy. Model MA(3) wypada troche gorzej od modeli ARIMA. Najgorzej wypada model AR(12).
+
+Teraz skupimy się na dokładności prognoz
+```{r}
+accuracy(model_ma3)
+```
+```{r}
+accuracy(model_ar12)
+```
+```{r}
+accuracy(arima.aic)
+```
+```{r}
+accuracy(arima.bic)
+```
+```{r}
+accuracy(data.log.trend.sezon)
+
+```
+
+W celu oceny dokładności prognoz tworzymy dataframe zawierający kluczowe miary, takie jak: RMSE, MAE, MAPE i MASE. Niższe wartości tych wskaźników wskazują na lepszą jakość prognoz. 
+
+```{r, echo = FALSE}
+accuracy_ma3 <- accuracy(model_ma3)
+accuracy_ar12 <- accuracy(model_ar12)
+accuracy_arima_aic <- accuracy(arima.aic)
+accuracy_arima_bic <- accuracy(arima.bic)
+accuracy_log_trend_sez <- accuracy(data.log.trend.sezon)
+
+results_df <- data.frame(
+  Model = c(
+    "MA(3)", 
+    "AR(12)", 
+    "ARIMA (AIC)", 
+    "ARIMA (BIC)", 
+    "TREND+SEZON na zlogarytmizowanych danych"
+  ),
+
+  RMSE = c(
+    accuracy_ma3[1, "RMSE"], 
+    accuracy_ar12[1, "RMSE"], 
+    accuracy_arima_aic[1, "RMSE"], 
+    accuracy_arima_bic[1, "RMSE"], 
+    accuracy_log_trend_sez[1, "RMSE"]
+  ),
+  MAE = c(                                                      
+    accuracy_ma3[1, "MAE"], 
+    accuracy_ar12[1, "MAE"], 
+    accuracy_arima_aic[1, "MAE"], 
+    accuracy_arima_bic[1, "MAE"], 
+    accuracy_log_trend_sez[1, "MAE"]
+  ),
+  MAPE = c(
+    accuracy_ma3[1, "MAPE"], 
+    accuracy_ar12[1, "MAPE"], 
+    accuracy_arima_aic[1, "MAPE"], 
+    accuracy_arima_bic[1, "MAPE"], 
+    accuracy_log_trend_sez[1, "MAPE"]
+  ),
+  MASE = c(
+    accuracy_ma3[1, "MASE"], 
+    accuracy_ar12[1, "MASE"], 
+    accuracy_arima_aic[1, "MASE"], 
+    accuracy_arima_bic[1, "MASE"], 
+    accuracy_log_trend_sez[1, "MASE"]
+  )
+)
+
+results_df$Total <- rowSums(results_df[, c("RMSE", "MAE", "MAPE", "MASE")])
+
+
+# Wyświetlenie wyników
+print(results_df)
+
+```
+Najwyższą dokładność prognoz osiąga model ARIMA wybrany na podstawie kryterium AIC. Różnica w dokładności między nim a modelem ARIMA wybranym według kryterium BIC jest niewielka i wynosi jedynie 0.46. Oba modele wyróżniają się precyzją prognoz w porównaniu z pozostałymi. Kolejnym w rankingu jest model na danych zlogarytmizowanych, uwzględniający trend i sezonowość, z wynikiem 31,7. Najsłabiej wypadły modele AM(3) i AR(12), osiągając około 240.
+
+
+**9. Wyznacz dla danych co najmniej jedną prognozę oraz oceń jej poprawność i dokładność.**
+
+Dane, które analizujemy, wydają się być intuicyjne i przewidywalne, co wzbudziło naszą ciekawość. Chciałybyśmy sprawdzić, jakie prognozy można uzyskać dla kolejnych 20 miesięcy. W tym celu, postanowiłyśmy zastosować trzy różne podejścia:prognozę naiwną, prognozę naiwną z uwzględnieniem sezonowości oraz prognozę uwzględniającą przesunięcie. 
+
+
+```{r, include = FALSE}
+forecast.naive <- naive(data, 20)
+forecast.naive
+```
+```{r, echo=FALSE}
+plot(forecast.naive, main="Prognoza naiwna (błądzenie losowe)")
+```
+Prognozy dalekoterminowe w modelu naiwnego błądzenia losowego są mało precyzyjne. Wynika to z faktu, że nie są dostarczane dodatkowe informacje o trendzie czy sezonowości, co widać w poszerzających się przedziałach ufności. 
+
+
+```{r, echo=FALSE}
+forecast.snaive <- snaive(data, 20)
+forecast.snaive
+```
+```{r, echo=FALSE}
+plot(forecast.snaive, main="Prognoza naiwna z sezonowością")
+```
+Przedziały ufności rozszerzają się wraz z upływem czasu. Choć uwzględnienie sezonowości sprawia, że prognozy są bardziej realistyczne dla danych o wyraźnym wzorcu sezonowym, model ten pozostaje uproszczonym podejściem, pomijającym na przykład trendy. 
+
+```{r, include=FALSE}
+forecast.rwf <- rwf(data, drift = TRUE, 20)
+forecast.rwf
+```
+
+```{r, echo=FALSE}
+plot(forecast.rwf, main = "Prognoza uwględniająca przesunięcie")
+```
+Mimo tego, że prognoza uchwyciła trend malejący naszych danych, nie uwzględniła sezonowości i staje się ona coraz mniej precyzyjna w miarę oddalania się od punktu wyjściowego, co wskazuje na wyższą niepewność prognozy w dłuższej perspektywie czasowej.
+
+Teraz skupimy się na wyznaczeniu prognoz dla roku 2024, dla którego posiadamy rzeczywiste wartości. Aby przeprowadzić analizę, podzielimy dane na dwa zbiory: zbiór treningowy, obejmujący dane od 2020 do 2023 roku, oraz zbiór testowy, zawierający dane dla roku 2024. Na tej podstawie przetestujemy dokładność prognoz i ocenimy, jak dobrze modele radzą sobie w przewidywaniu rzeczywistych wartości. 
+
+```{r, echo=FALSE}
+data.train <- window(data, end = c(2023, 12))
+data.test <- window(data, start = c(2024, 1))
+
+naive_train <- naive(data.train, 12)
+snaive_train <- snaive(data.train, 12)
+rwf_train <- rwf(data.train, drift=TRUE, 12)
+
+
+par(mfrow=c(3,1))
+par(mar=c(5,5,1,1))
+
+
+plot(naive_train,  main="Prognoza naiwna (błądzenie losowe)", ylim = c(-10, 30))
+lines(data.test, col="red", lty=2)
+
+plot(snaive_train,main = "Prognoza naiwna z sezonowością", ylim = c(-10, 30))
+lines(data.test, col="red", lty=2)
+
+plot(rwf_train, main = "Prognoza uwględniająca przesunięcie", ylim = c(-10, 30))
+lines(data.test, col="red", lty=2)
+```
+
+Prognoza naiwna z uwzględnieniem sezonowości najlepiej odzwierciedla nasze dane. Choć nie uchwyciła malejącego trendu, skutecznie poradziła sobie z przewidywaniem wartości na kolejne 12 miesięcy. 
+
+Następnie ocenimy dokładność prognoz na podstawie miar MAE, RMSE, MAPE, MASE. 
+
+```{r, echo =FALSE}
+kryteria <- c("MAE", "RMSE", "MAPE", "MASE")
+
+naive_acc <- accuracy(naive_train, data.test)[, kryteria]
+snaive_acc <- accuracy(snaive_train, data.test)[, kryteria]
+rwf_acc <- accuracy(rwf_train, data.test)[, kryteria]
+
+results <- data.frame(
+  Model = c("naiwny", "naiwny z sezonowością", "prognoza z przesunięciem"),
+  MAE = c(naive_acc["Test set", "MAE"], snaive_acc["Test set", "MAE"], rwf_acc["Test set", "MAE"]),
+  RMSE = c(naive_acc["Test set", "RMSE"], snaive_acc["Test set", "RMSE"], rwf_acc["Test set", "RMSE"]),
+  MAPE = c(naive_acc["Test set", "MAPE"], snaive_acc["Test set", "MAPE"], rwf_acc["Test set", "MAPE"]),
+  MASE = c(naive_acc["Test set", "MASE"], snaive_acc["Test set", "MASE"], rwf_acc["Test set", "MASE"])
+)
+
+results$Total <- rowSums(results[, 2:5])
+
+print(results)
+```
+Zgodnie z obserwacjami na podstawie wykresów poprawności prognoz, prognoza naiwna z uwzględnieniem sezonowości okazała się najbardziej skuteczna, co potwierdzają najniższe wartości miar oceny modelu. 
+
+**10. Wskaż Twoim zdaniem najlepszy model. Uzasadnij wybór.** 
+
+W ramach naszego projektu przeanalizowałyśmy różne modele, uwzględniając zarówno modele regresyjne oparte na trendzie i sezonowości, jak i modele szeregów czasowych, takie jak ARIMA. Ocena modeli opierała się na teście ANOVA oraz klasycznych miarach jakości, takich jak AIC, BIC, RMSE, MAE, MAPE, MASE. Na podstawie uzyskanych wyników, najlepszym wyborem okazały się model z trendem i sezonowością na zlogarytmizowanych danych oraz model "ARIMA(AIC)", czyli model ARIMA(0,0,0)(1,1,0)[12] with drift. 
+
+Model na zlogarytmizowanych danych znacząco poprawił wyniki względem modelu liniowego. RSS spadło do 6.138, a test ANOVA potwierdził istotność dodania sezonowości. Modele bardziej złożone, takie jak model z trendem kwadratowym oraz model z trendem wielomianowym, nie poprawiły istotnie dopasowania, dlatego stwierdzamy, że złożoność tych modeli jest zbędna. 
+
+W przypadku modeli szeregów czasowych model ARIMA(AIC) okazał się najlepszym modelem w tej kategorii,osiągając bardzo dobre wyniki dla miar błędów prognozowych: RMSE (0.7447), MAE (0.5791), MAPE (11.5452) oraz MASE(0.1588). Choć jego AIC (127.8582) nie było najniższe, jego precyzja prognoz czyni go wyjątkowo trafnym narzędziem do przewidywania przyszłych wartości. Model ARIMA (BIC) choć równie dobry, miał minimalnie gorsze wyniki zarówno w zakresie miar błędów, jak i dopasowania. 
+
+Spośród testowanych metod prognozowania, najlepsze wyniki osiągnęła metoda naiwna sezonowa (snaive). Chociaż nie wszystkie jej miary błędów prognozowych, takie jak MAE(3.9756), RMSE (4.0364), czy MASE (1.1237), były najniższe w porównaniu do pozostałych metod, to łączna suma tych wyników zapewniła jej przewagę. Metoda ta skutecznie uwzględniła sezonowość danych, co pozwoliło na uzyskanie prognoz o wysokiej trafności i solidnej jakości. 
+
+Ostatecznie, biorąc pod uwagę zarówno prostotę, jak i jakość prognoz, Model ARIMA (AIC) stanowi nasz finalny wybór jako najlepsze narzędzie prognozowania dla analizowanych danych, podczas gdy prognoza sezonowa (snaive) jest świetnym uzupełnieniem w analizie krótkoterminowej sezonowości.
+
